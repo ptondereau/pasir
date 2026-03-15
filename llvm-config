@@ -1,7 +1,9 @@
 #!/bin/sh
 
+LLVM_CONFIG_BIN=$(find /usr/bin -name 'llvm-config*' -not -name '*.h' | head -1)
+
 if [ "$1" = "--libs" ]; then
-    /usr/bin/llvm-config "$@" "--system-libs" "--link-static"
+    "$LLVM_CONFIG_BIN" "$@" "--system-libs" "--link-static"
 else
-    /usr/bin/llvm-config "$@"
+    "$LLVM_CONFIG_BIN" "$@"
 fi

@@ -19,7 +19,7 @@ fn main() -> anyhow::Result<()> {
   }
 
   #[cfg(feature = "static")]
-  build_static(find_executable("spc", "SPC")?)?;
+  build_static(pasir_build::find_executable("spc", "SPC")?)?;
 
   Ok(())
 }

@@ -4,4 +4,7 @@ if (patch_point() !== 'after-php-extract') {
     return;
 }
 
-f_passthru(sprintf('patch -p1 -d %s/php-src < %s/accel_find_sapi.patch', SOURCE_PATH, __DIR__));
+$file = SOURCE_PATH . '/php-src/ext/opcache/ZendAccelerator.c';
+$content = file_get_contents($file);
+$content = str_replace('"fuzzer",', "\"fuzzer\",\n\t\t\"pasir\",", $content);
+file_put_contents($file, $content);
