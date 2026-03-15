@@ -1,3 +1,6 @@
+ARG PHP_VERSION=8.4
+ARG SPC_VERSION=2.8.2
+
 FROM rust:alpine AS builder
 
 # Install SPC dependencies
@@ -33,8 +36,8 @@ RUN apk update; \
         zlib-static \
         zstd-static
 
-# Install static-php-cli (spc)
-RUN curl -fsSL https://github.com/crazywhalecc/static-php-cli/releases/download/2.7.4/spc-linux-$(uname -m).tar.gz | tar xz && \
+ARG SPC_VERSION
+RUN curl -fsSL https://github.com/crazywhalecc/static-php-cli/releases/download/${SPC_VERSION}/spc-linux-$(uname -m).tar.gz | tar xz && \
     mv spc /usr/local/bin/spc
 
 ENV CC=clang \
@@ -52,6 +55,8 @@ WORKDIR /spc
 COPY craft.yml /spc/craft.yml
 COPY patches /spc/patches
 
+ARG PHP_VERSION
+RUN sed -i "s/^php-version:.*/php-version: ${PHP_VERSION}/" craft.yml
 RUN --mount=type=secret,id=github_token,env=GITHUB_TOKEN spc doctor
 RUN --mount=type=secret,id=github_token,env=GITHUB_TOKEN spc craft
 
