@@ -78,6 +78,11 @@ fn link_flags() {
 #[cfg(target_env = "musl")]
 fn link_flags() {
   println!("cargo:rustc-link-arg=-fuse-ld=lld");
-  println!("cargo:rustc-link-search=/usr/lib/clang/20/lib/linux");
+
+  // Find the clang resource dir dynamically instead of hardcoding the version
+  let output = Command::new("clang").arg("--print-resource-dir").output().expect("failed to run clang");
+  let dir = String::from_utf8(output.stdout).expect("invalid UTF-8 from clang");
+  let dir = dir.trim();
+  println!("cargo:rustc-link-search={dir}/lib/linux");
   println!("cargo:rustc-link-lib=clang_rt.builtins-{}", std::env::consts::ARCH);
 }
