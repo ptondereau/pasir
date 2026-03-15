@@ -1,4 +1,5 @@
 name: Binaries
+
 on:
   workflow_dispatch:
   release:
@@ -13,93 +14,33 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ ubuntu-latest, ubuntu-24.04-arm ]
-        include:
-          - os: ubuntu-latest
-            platform: linux/amd64
+        php: ['8.1', '8.2', '8.3', '8.4', '8.5']
+        arch:
+          - runner: ubuntu-latest
             target: x86_64-unknown-linux-musl
-          - os: ubuntu-24.04-arm
-            platform: linux/arm64
+          - runner: ubuntu-24.04-arm
             target: aarch64-unknown-linux-musl
 
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.arch.runner }}
 
     permissions:
       contents: write
 
     steps:
-      - uses: actions/checkout@v5
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Build and push
-        uses: docker/build-push-action@v6
+      - uses: actions/checkout@v6
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
         with:
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          build-args: PHP_VERSION=${{ matrix.php }}
+          cache-from: type=gha,scope=musl-${{ matrix.arch.target }}-php${{ matrix.php }}
+          cache-to: type=gha,mode=max,scope=musl-${{ matrix.arch.target }}-php${{ matrix.php }}
           file: docker/musl.Dockerfile
           load: true
           push: false
           secrets: github_token=${{ github.token }}
-          tags: pasir:musl
-      - run: docker cp $(docker run -d pasir:musl):/usr/local/bin/pasir ./pasir-${{ matrix.target }}
-      - run: gh release upload ${{ github.ref_name }} pasir-${{ matrix.target }} --clobber
-        env:
-          GH_TOKEN: ${{ github.token }}
-
-  apple-darwin:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ macos-latest, macos-13 ]
-        include:
-          - os: macos-latest
-            arch: macos-aarch64
-          - os: macos-13
-            arch: macos-x86_64
-
-    runs-on: ${{ matrix.os }}
-
-    permissions:
-      contents: write
-
-    steps:
-      - uses: actions/checkout@v5
-      - name: Download spc
-        run: |
-          gh release download 2.7.4 -R crazywhalecc/static-php-cli --pattern "spc-${{ matrix.arch }}.tar.gz"
-          tar -zxvf spc-${{ matrix.arch }}.tar.gz
-          rm spc-${{ matrix.arch }}.tar.gz
-          mkdir .bin
-          mv spc .bin
-          echo "$PWD/.bin" >> $GITHUB_PATH
-        env:
-          GH_TOKEN: ${{ github.token }}
-      - uses: actions/cache/restore@v4
-        with:
-          path: downloads
-          key: ${{ runner.os }}-${{ runner.arch }}-spc
-          restore-keys: ${{ runner.os }}-${{ runner.arch }}-spc-
-      - run: spc doctor
-      - run: |
-          spc craft
-          echo "$PWD/buildroot/bin" >> $GITHUB_PATH
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-      - uses: actions/cache/save@v4
-        with:
-          path: downloads
-          key: ${{ runner.os }}-${{ runner.arch }}-spc-${{ hashFiles('downloads/.lock.json') }}
-      - uses: actions/cache@v4
-        with:
-          path: ~/.cargo
-          key: ${{ runner.os }}-${{ runner.arch }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-${{ runner.arch }}-cargo-
-      - run: cargo build --bins --features static --release
-      - id: target
-        run: echo "target=$(rustup target list --installed)" >> "$GITHUB_OUTPUT"
-      - run: cp target/release/pasir ./pasir-${{ steps.target.outputs.target }}
-      - run: gh release upload ${{ github.ref_name }} pasir-${{ steps.target.outputs.target }} --clobber
+          tags: pasir:build
+      - run: docker cp $(docker run -d pasir:build):/usr/local/bin/pasir ./pasir-${{ matrix.arch.target }}-php${{ matrix.php }}
+      - if: github.event_name == 'release'
+        run: gh release upload ${{ github.event.release.tag_name }} pasir-${{ matrix.arch.target }}-php${{ matrix.php }} --clobber
         env:
           GH_TOKEN: ${{ github.token }}
